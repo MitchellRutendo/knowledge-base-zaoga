@@ -1,0 +1,21 @@
+.answers-page-container {
+    margin: 20px;
+  }
+  
+  .answers-page-title {
+    font-size: 24px;
+    margin-bottom: 10px;
+  }
+  
+  .answer-item {
+    margin-bottom: 15px;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+  }
+  
+  .answer-item h3 {
+    margin-top: 0;
+  }
+  

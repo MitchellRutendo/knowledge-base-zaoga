@@ -1,0 +1,73 @@
+/* General container styling */
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background-color: #b0f1fa; /* Light gray background */
+    padding: 24px;
+  }
+  
+  /* Welcome text styling */
+  .welcome-text {
+    font-size: 2.25rem; /* 4xl in Tailwind */
+    font-weight: 700; /* Bold */
+    color: #2563eb; /* Blue-600 in Tailwind */
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  
+  /* Assistance text styling */
+  .assist-text {
+    font-size: 1.125rem; /* lg in Tailwind */
+    color: #374151; /* Gray-700 in Tailwind */
+    margin-bottom: 32px;
+    text-align: center;
+  }
+  
+  /* Button container to organize buttons */
+  .button-container {
+    display: flex;
+    gap: 16px; /* Space between buttons */
+  }
+  
+  /* General button styling */
+  .button {
+    padding: 12px 24px; /* px-6 and py-3 in Tailwind */
+    font-size: 1rem; /* Base font size */
+    font-weight: 600; /* Semi-bold */
+    border-radius: 8px; /* Rounded-lg */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Shadow-md */
+    outline: none;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+  }
+  
+  /* Ask button specific styling */
+  .ask-button {
+    background-color: #3b82f6; /* Blue-500 in Tailwind */
+    color: #ffffff;
+  }
+  
+  .ask-button:hover {
+    background-color: #2563eb; /* Blue-600 in Tailwind */
+  }
+  
+  .ask-button:focus {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.5); /* Focus ring */
+  }
+  
+  /* Contribute button specific styling */
+  .contribute-button {
+    background-color: #10b981; /* Green-500 in Tailwind */
+    color: #ffffff;
+  }
+  
+  .contribute-button:hover {
+    background-color: #059669; /* Green-600 in Tailwind */
+  }
+  
+  .contribute-button:focus {
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.5); /* Focus ring */
+  }
