@@ -2,12 +2,16 @@ import React, { useState } from 'react';
 import './AddContribution.css'; // Import the CSS file
 import axios from 'axios'; // Import axios
 
+
 function AddContribution() {
+  
+
   const [formData, setFormData] = useState({
     topic: '',
     description: '',
     resolution: '',
     file: null,
+    image: null, // Add state for image
   });
 
   const handleInputChange = (e) => {
@@ -25,9 +29,16 @@ function AddContribution() {
     }));
   };
 
+  const handleImageChange = (e) => {
+    setFormData((prevData) => ({
+      ...prevData,
+      image: e.target.files[0], // Add image file to state
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
+
     const data = new FormData();
     data.append('topic', formData.topic);
     data.append('description', formData.description);
@@ -35,31 +46,48 @@ function AddContribution() {
     if (formData.file) {
       data.append('file', formData.file);
     }
-  
+    if (formData.image) {
+      data.append('image', formData.image); // Append image to form data
+    }
+
     console.log('Form Data Submitted:', data); // Log the form data
-  
+
+    // Log each field in FormData
+    for (let [key, value] of data.entries()) {
+      console.log(key, value);
+    }
+
     try {
       const response = await axios.post('http://localhost:3001/articles', data, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
-  
+
       if (response.status === 200) {
         alert('Contribution Submitted Successfully!');
         setFormData({
           topic: '',
           description: '',
           resolution: '',
-          file: null,
+          image: null,
+          file: null, // Reset image state
         });
+        
       }
     } catch (error) {
-      console.error('Error submitting form:', error); // Log the error
-      alert('Failed to submit contribution. Please try again.');
+      if (error.response) {
+        console.error('Error response data:', error.response.data);
+        console.error('Error response status:', error.response.status);
+        console.error('Error response headers:', error.response.headers);
+      } else if (error.request) {
+        console.error('Error request:', error.request);
+      } else {
+        console.error('Error message:', error.message);
+      }
+      console.error('Error config:', error.config);
     }
   };
-  
 
   return (
     <div className="contribution-page-container">
@@ -97,6 +125,17 @@ function AddContribution() {
             onChange={handleInputChange}
             rows="4"
             required
+          />
+          {/* Image Upload inside Description */}
+          <label className="form-label" htmlFor="image">
+            Upload Supporting Image (Optional)
+          </label>
+          <input
+            type="file"
+            id="image"
+            name="image"
+            className="form-input"
+            onChange={handleImageChange} // Handle image change
           />
         </div>
 
