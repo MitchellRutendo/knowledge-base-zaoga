@@ -2,10 +2,7 @@ import React, { useState } from 'react';
 import './AddContribution.css'; // Import the CSS file
 import axios from 'axios'; // Import axios
 
-
 function AddContribution() {
-  
-
   const [formData, setFormData] = useState({
     topic: '',
     description: '',
@@ -13,6 +10,9 @@ function AddContribution() {
     file: null,
     image: null, // Add state for image
   });
+
+  // Sample topics for dropdown menu
+  const topics = ["Printer", "Network", "Emails", "Hardware", "Maximum Login"];
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -52,13 +52,8 @@ function AddContribution() {
 
     console.log('Form Data Submitted:', data); // Log the form data
 
-    // Log each field in FormData
-    for (let [key, value] of data.entries()) {
-      console.log(key, value);
-    }
-
     try {
-      const response = await axios.post('http://localhost:3001/articles', data, {
+      const response = await axios.post('http://localhost:8081/articles', data, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -70,22 +65,12 @@ function AddContribution() {
           topic: '',
           description: '',
           resolution: '',
-          image: null,
-          file: null, // Reset image state
+          file: null,
+          image: null, // Reset image state
         });
-        
       }
     } catch (error) {
-      if (error.response) {
-        console.error('Error response data:', error.response.data);
-        console.error('Error response status:', error.response.status);
-        console.error('Error response headers:', error.response.headers);
-      } else if (error.request) {
-        console.error('Error request:', error.request);
-      } else {
-        console.error('Error message:', error.message);
-      }
-      console.error('Error config:', error.config);
+      console.error('Error:', error);
     }
   };
 
@@ -99,16 +84,23 @@ function AddContribution() {
           <label className="form-label" htmlFor="topic">
             Topic of Contribution
           </label>
-          <input
-            type="text"
+          <select
             id="topic"
             name="topic"
-            className="form-input"
-            placeholder="Enter the topic..."
+            className="form-select"
             value={formData.topic}
             onChange={handleInputChange}
             required
-          />
+          >
+            <option value="" disabled>
+              Select a topic
+            </option>
+            {topics.map((topic, index) => (
+              <option key={index} value={topic}>
+                {topic}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Description */}
@@ -135,7 +127,7 @@ function AddContribution() {
             id="image"
             name="image"
             className="form-input"
-            onChange={handleImageChange} // Handle image change
+            onChange={handleImageChange}
           />
         </div>
 

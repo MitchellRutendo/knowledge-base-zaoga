@@ -10,19 +10,14 @@ import SignUp from './Sign-Up';
 
 
 
-
 function App() {
- 
-
-  
-
-   
   return (
     <CssVarsProvider>
-      <Router>
-        
-        
+      
+        <Router>
+         
           <Routes>
+          
             <Route path="/" element={<Welcome />} />
             <Route path="/sign-up" element={<SignUp />} />
             <Route path="/homepage" element={<Homepage />} />
@@ -33,13 +28,13 @@ function App() {
 
           {/* Navigation example */}
           <nav>
-            <Link to="/">Home</Link> | <Link to="/homepage">Homepage</Link> |{' '}
+          <Link to="/">Home</Link> |<Link to="/welcome">signIn</Link> | <Link to="/homepage">Homepage</Link> |{' '}
             <Link to="/ask">Ask a Question</Link> |{' '}
             <Link to="/add-contribution">Add Contribution</Link> |{' '}
             <Link to="/answers">Answers</Link>
           </nav>
-        
-      </Router>
+        </Router>
+     
     </CssVarsProvider>
   );
 }

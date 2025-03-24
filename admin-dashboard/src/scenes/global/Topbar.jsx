@@ -1,32 +1,63 @@
-import React, { useEffect, useContext } from 'react';
-import { Badge, IconButton } from '@mui/material';
-import NotificationsOutlinedIcon from '@mui/icons-material/NotificationsOutlined';
-import { NotificationContext } from '../NotificationContext'; // Import NotificationContext
-import { io } from 'socket.io-client'; // Import socket.io-client
+import { Box, IconButton, useTheme, Badge } from "@mui/material";
+import { useContext } from "react";
+import { ColorModeContext, tokens } from "../../theme";
+import InputBase from "@mui/material/InputBase";
+import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
+import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
+import NotificationsOutlinedIcon from "@mui/icons-material/NotificationsOutlined";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
+import SearchIcon from "@mui/icons-material/Search";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 
 const Topbar = () => {
-  const { notificationCount, incrementNotification } = useContext(NotificationContext);
-
-  useEffect(() => {
-    const socket = io('http://localhost:3001'); // Connect to the backend WebSocket server
-
-    // Listen for the "newContribution" event
-    socket.on('newContribution', (data) => {
-      console.log('Received notification:', data);
-      incrementNotification(); // Increment notification count
-    });
-
-    return () => {
-      socket.disconnect(); // Cleanup on component unmount
-    };
-  }, [incrementNotification]);
+  const theme = useTheme();
+  const colors = tokens(theme.palette.mode);
+  const colorMode = useContext(ColorModeContext);
+ 
 
   return (
-    <IconButton>
-      <Badge badgeContent={notificationCount} color="error">
-        <NotificationsOutlinedIcon />
-      </Badge>
-    </IconButton>
+    <Box display="flex" justifyContent="space-between" p={2}>
+      {/* SEARCH BAR */}
+      <Box
+        display="flex"
+        backgroundColor={colors.primary[400]}
+        borderRadius="3px"
+      >
+        <InputBase sx={{ ml: 2, flex: 1 }} placeholder="Search" />
+        <IconButton type="button" sx={{ p: 1 }}>
+          <SearchIcon />
+        </IconButton>
+      </Box>
+
+      {/* ICONS */}
+      <Box display="flex">
+        <IconButton onClick={colorMode.toggleColorMode}>
+          {theme.palette.mode === "dark" ? (
+            <DarkModeOutlinedIcon />
+          ) : (
+            <LightModeOutlinedIcon />
+          )}
+        </IconButton>
+        {/* Notification Icon with Badge */}
+        <IconButton>
+          <Badge badgeContent  color="error">
+            <NotificationsOutlinedIcon />
+          </Badge>
+        </IconButton>
+        <IconButton>
+          <SettingsOutlinedIcon />
+        </IconButton>
+        <IconButton>
+          <PersonOutlinedIcon />
+        </IconButton>
+      </Box>
+
+      {/* Toast Container */}
+      <ToastContainer />
+    </Box>
   );
 };
 

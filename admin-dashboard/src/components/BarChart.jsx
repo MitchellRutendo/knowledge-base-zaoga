@@ -7,9 +7,9 @@ const BarChart = ({ isDashboard = false }) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const [data, setData] = useState([]);
-
+3
   useEffect(() => {
-    fetch('http://localhost:3001/articles')
+    fetch('http://localhost:8081/articles')
       .then(response => response.json())
       .then(data => {
         console.log('Fetched data:', data); // Debugging: Log the fetched data
