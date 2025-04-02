@@ -3,7 +3,7 @@ import { useTheme } from "@mui/material";
 import { tokens } from "../theme";
 import { useEffect, useState } from "react";
 
-const LineChart = ({ isCustomLineColors = false, isDashboard = false }) => {
+const LineChart = ({ isDashboard = false }) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const [data, setData] = useState([]);
@@ -12,15 +12,15 @@ const LineChart = ({ isCustomLineColors = false, isDashboard = false }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch("http://localhost:3001/topics-per-day");
-        if (!response.ok) {
-          throw new Error("Failed to fetch data");
-        }
+        const response = await fetch("http://localhost:8081/articles/topics-per-day");
+        if (!response.ok) throw new Error("Failed to fetch data");
+        
         const rawData = await response.json();
         const formattedData = [
           {
             id: "topics",
-            data: rawData.map((item) => ({
+            color: colors.greenAccent[500], // Add color property
+            data: rawData.map(item => ({
               x: item.date,
               y: item.topic_count,
             })),
@@ -29,6 +29,15 @@ const LineChart = ({ isCustomLineColors = false, isDashboard = false }) => {
         setData(formattedData);
       } catch (error) {
         console.error("Error fetching data:", error);
+        // Fallback data with color
+        setData([{
+          id: "topics",
+          color: colors.greenAccent[500],
+          data: Array.from({ length: 30 }, (_, i) => ({
+            x: new Date(Date.now() - (30 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            y: Math.floor(Math.random() * 10)
+          }))
+        }]);
       } finally {
         setIsLoading(false);
       }
@@ -37,110 +46,62 @@ const LineChart = ({ isCustomLineColors = false, isDashboard = false }) => {
     fetchData();
   }, []);
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  if (!isLoading && data.length === 0) {
-    return <div>No data available</div>;
-  }
+  if (isLoading) return <div>Loading...</div>;
 
   return (
     <ResponsiveLine
       data={data}
       theme={{
         axis: {
-          domain: {
-            line: {
-              stroke: colors.grey[100],
-            },
-          },
-          legend: {
-            text: {
-              fill: colors.grey[100],
-            },
-          },
+          domain: { line: { stroke: colors.grey[100] } },
+          legend: { text: { fill: colors.grey[100] } },
           ticks: {
-            line: {
-              stroke: colors.grey[100],
-              strokeWidth: 1,
-            },
-            text: {
-              fill: colors.grey[100],
-            },
+            line: { stroke: colors.grey[100], strokeWidth: 1 },
+            text: { fill: colors.grey[100] },
           },
         },
-        legends: {
-          text: {
-            fill: colors.grey[100],
-          },
-        },
-        tooltip: {
-          container: {
-            color: colors.primary[500],
-          },
-        },
+        legends: { text: { fill: colors.grey[100] } },
+        tooltip: { container: { background: colors.primary[400], color: colors.grey[100] } },
       }}
-      colors={isDashboard ? { datum: "color" } : { scheme: "nivo" }}
+      colors={{ datum: "color" }} // Use the color from data
       margin={{ top: 50, right: 110, bottom: 50, left: 60 }}
       xScale={{ type: "point" }}
       yScale={{
         type: "linear",
         min: 0,
         max: "auto",
-        stacked: true,
+        stacked: false,
         reverse: false,
       }}
-      yFormat=" >-.2f"
-      curve="catmullRom"
+      curve="monotoneX"
       axisTop={null}
       axisRight={null}
       axisBottom={{
         orient: "bottom",
-        tickSize: 0,
+        tickSize: 5,
         tickPadding: 5,
-        tickRotation: 0,
+        tickRotation: -45,
         legend: isDashboard ? undefined : "Date",
         legendOffset: 36,
         legendPosition: "middle",
-        tickFormat: (value) => {
-          const date = new Date(value);
-          return date.toLocaleDateString("en-US", { day: "numeric", month: "short" });
-        },
       }}
       axisLeft={{
         orient: "left",
-        tickValues: 5,
-        tickSize: 3,
+        tickSize: 5,
         tickPadding: 5,
         tickRotation: 0,
         legend: isDashboard ? undefined : "Topic Count",
         legendOffset: -40,
         legendPosition: "middle",
-        format: (value) => `${value} topics`,
       }}
       enableGridX={false}
       enableGridY={false}
-      pointSize={8}
+      pointSize={10}
       pointColor={{ theme: "background" }}
       pointBorderWidth={2}
       pointBorderColor={{ from: "serieColor" }}
       pointLabelYOffset={-12}
       useMesh={true}
-      tooltip={({ point }) => (
-        <div
-          style={{
-            background: colors.primary[500],
-            padding: "8px",
-            borderRadius: "4px",
-            color: "#fff",
-          }}
-        >
-          <strong>Date:</strong> {point.data.xFormatted}
-          <br />
-          <strong>Topics:</strong> {point.data.yFormatted}
-        </div>
-      )}
       legends={[
         {
           anchor: "bottom-right",

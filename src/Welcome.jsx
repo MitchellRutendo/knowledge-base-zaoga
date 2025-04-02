@@ -1,7 +1,8 @@
 import * as React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // Added useEffect
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate for redirection
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from './context/AuthContext';
 import Typography from '@mui/joy/Typography';
 import FormControl from '@mui/joy/FormControl';
 import FormLabel from '@mui/joy/FormLabel';
@@ -16,7 +17,13 @@ export default function LoginFinal() {
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const navigate = useNavigate(); // Initialize useNavigate for redirection
+  const navigate = useNavigate();
+  const { login } = useAuth();
+
+  // Clear any forward history when this component mounts
+  useEffect(() => {
+    navigate('.', { replace: true });
+  }, [navigate]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -33,15 +40,16 @@ export default function LoginFinal() {
       setError('');
       setSuccess('');
 
-      // Send login data to the backend
       const response = await axios.post('http://localhost:8081/login', formData);
 
       if (response.status === 200) {
         setSuccess('Login successful! Redirecting...');
-        // Redirect to the homepage after a short delay
+        login(response.data.user);
+        
         setTimeout(() => {
-          navigate('./Homepage'); // Redirect to the homepage
-        }, 2000); // 2-second delay before redirection
+          // Replace the current entry so there's nothing to go back to
+          navigate('/homepage', { replace: true });
+        }, 2000);
       }
     } catch (err) {
       setError(err.response?.data?.error || 'An error occurred. Please try again.');
@@ -91,7 +99,7 @@ export default function LoginFinal() {
             component="h1"
             sx={{ marginTop: '10px', fontSize: '18px', color: '#fff' }}
           >
-            Welcome to ZAOGA FIF Knowledge-Base!
+            Welcome to ZAOGA FIF IT Knowledge-Base!
           </Typography>
         </div>
         <div className="form-content">

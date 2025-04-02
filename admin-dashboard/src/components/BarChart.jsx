@@ -2,132 +2,130 @@ import { useEffect, useState } from 'react';
 import { useTheme } from "@mui/material";
 import { ResponsiveBar } from "@nivo/bar";
 import { tokens } from "../theme";
+import { Box, CircularProgress, Typography } from "@mui/material";
 
 const BarChart = ({ isDashboard = false }) => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch('http://localhost:8081/articles')
-      .then(response => response.json())
-      .then(data => {
-        console.log('Fetched data:', data); // Debugging: Log the fetched data
-        const formattedData = data.map(item => ({
-          topic: item.topic,
-          count: item.count,
-        }));
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('http://localhost:8081/articles/topic-counts');
+        
+        if (!response.ok) {
+          // Enhanced error handling
+          if (response.status === 404) {
+            throw new Error('Resource not found (404). Please check the API endpoint.');
+          } else {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+        }
+        
+        const result = await response.json();
+        
+        if (!Array.isArray(result)) {
+          throw new Error('Invalid data format received from API');
+        }
+        
+        // Transform and validate data
+        const formattedData = result.map(item => ({
+          topic: item.topic || 'Other',
+          count: Number(item.count) || 0
+        })).sort((a, b) => b.count - a.count);
+        
         setData(formattedData);
-      })
-      .catch(error => {
-        console.error('Error fetching data:', error);
-      });
+      } catch (err) {
+        console.error('Fetch error:', err);
+        setError(err.message);
+        // Fallback demo data
+        setData([
+          { topic: 'Printer', count: 8 },
+          { topic: 'Hardware', count: 4 },
+          { topic: 'Network', count: 3 }
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
-  // Create a color mapping for each topic
-  const topicColorMap = {};
-  const colorPalette = [
-    colors.blueAccent?.[500] || "#1a73e8", // Fallback to a default blue
-    colors.greenAccent?.[500] || "#10b981", // Fallback to a default green
-    colors.redAccent?.[500] || "#e53935", // Fallback to a default red
-    colors.yellowAccent?.[500] || "#fdd835", // Fallback to a default yellow
-    colors.purpleAccent?.[500] || "#8e24aa", // Fallback to a default purple
-    colors.orangeAccent?.[500] || "#fb8c00", // Fallback to a default orange
-  ];
+  if (loading) return (
+    <Box display="flex" justifyContent="center" alignItems="center" height="100%">
+      <CircularProgress color="secondary" />
+    </Box>
+  );
 
-  // Assign a color to each topic dynamically
-  data.forEach((item, index) => {
-    if (!topicColorMap[item.topic]) {
-      topicColorMap[item.topic] = colorPalette[index % colorPalette.length];
-    }
-  });
-
-  // Custom color function
-  const getBarColor = (bar) => {
-    if (bar.id === "count") {
-      return topicColorMap[bar.indexValue] || "#cccccc"; // Fallback to grey
-    }
-    return "#cccccc"; // Fallback color
-  };
+  if (error) return (
+    <Box display="flex" justifyContent="center" alignItems="center" height="100%" color="error.main">
+      <Typography variant="body1">Error: {error}</Typography>
+    </Box>
+  );
 
   return (
     <ResponsiveBar
       data={data}
       keys={['count']}
       indexBy="topic"
-      margin={{ top: 50, right: 130, bottom: 50, left: 60 }}
-      padding={0.3}
-      valueScale={{ type: "linear" }}
-      indexScale={{ type: "band", round: true }}
-      colors={getBarColor}
+      margin={{
+        top: 20,
+        right: isDashboard ? 20 : 60,
+        bottom: isDashboard ? 80 : 100,
+        left: isDashboard ? 50 : 70
+      }}
+      padding={0.6}
+      valueScale={{ type: 'linear' }}
+      indexScale={{ type: 'band', round: true }}
+      colors={{ scheme: 'nivo' }}
+      borderColor={{ from: 'color', modifiers: [['darker', 1.6]] }}
       axisBottom={{
         tickSize: 5,
         tickPadding: 5,
-        tickRotation: 0,
-        legend: isDashboard ? undefined : "Topic",
-        legendPosition: "middle",
-        legendOffset: 32,
-        tickValues: 5, // Adjust the number of ticks if needed
-        tickTextColor: "#ffffff", // Set x-axis text color to white
+        tickRotation: -45,
+        legend: isDashboard ? undefined : 'Article Topics',
+        legendPosition: 'middle',
+        legendOffset: 60
       }}
       axisLeft={{
         tickSize: 5,
         tickPadding: 5,
         tickRotation: 0,
-        legend: isDashboard ? undefined : "Count",
-        legendPosition: "middle",
-        legendOffset: -40,
-        tickValues: 5, // Adjust the number of ticks if needed
-        tickTextColor: "#ffffff", // Set y-axis text color to white
+        legend: isDashboard ? undefined : 'Number of Articles',
+        legendPosition: 'middle',
+        legendOffset: -50,
+        format: (value) => Number.isInteger(value) ? value : ''
       }}
-      enableLabel={false}
       labelSkipWidth={12}
       labelSkipHeight={12}
-      labelTextColor={{
-        from: "color",
-        modifiers: [["darker", 1.6]],
-      }}
-      legends={[
-        {
-          dataFrom: "keys",
-          anchor: "bottom-right",
-          direction: "column",
-          justify: false,
-          translateX: 120,
-          translateY: 0,
-          itemsSpacing: 2,
-          itemWidth: 100,
-          itemHeight: 20,
-          itemDirection: "left-to-right",
-          itemOpacity: 0.85,
-          symbolSize: 20,
-          effects: [
-            {
-              on: "hover",
-              style: {
-                itemOpacity: 1,
-              },
-            },
-          ],
-        },
-      ]}
-      role="application"
-      barAriaLabel={function (e) {
-        return e.id + ": " + e.formattedValue + " on topic: " + e.indexValue;
-      }}
+      labelTextColor={{ from: 'color', modifiers: [['darker', 1.6]] }}
       theme={{
         axis: {
           ticks: {
             text: {
-              fill: "#ffffff", // Set axis text color to white
-            },
+              fill: colors.grey[100],
+              fontSize: 12
+            }
           },
           legend: {
             text: {
-              fill: "#ffffff", // Set axis legend text color to white
-            },
-          },
+              fill: colors.grey[100],
+              fontSize: 14
+            }
+          }
         },
+        tooltip: {
+          container: {
+            background: colors.primary[400],
+            color: colors.grey[100],
+            fontSize: 12
+          }
+        }
       }}
     />
   );

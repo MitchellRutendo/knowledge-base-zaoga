@@ -5,15 +5,56 @@ import multer from 'multer';
 import bcrypt from 'bcrypt';
 import fs from 'fs';
 import dotenv from 'dotenv';
+import session from 'express-session';
 
-dotenv.config(); // Load environment variables from .env file
+dotenv.config();
 
 const app = express();
 const port = 8081;
 
-// Middleware
-app.use(cors());
+const allowedOrigins = ['http://localhost:3000', 'http://localhost:5000'];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true, // This requires specific origins (no wildcard)
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  res.header('Access-Control-Allow-Credentials', 'true');
+  next();
+});
+
 app.use(express.json());
+// Ensure this comes BEFORE any routes that use sessions
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key-here',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: false, // Set to true in production with HTTPS
+    sameSite: 'lax',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  },
+  name: 'zaoga.sid' // Custom session cookie name
+}));
 
 // Ensure uploads directory exists
 const uploadDir = './uploads';
@@ -53,7 +94,70 @@ db.connect((err) => {
   console.log('MySQL connected...');
 });
 
-// ===== ROUTES =====
+const activeSessions = new Map();
+
+// Fixed logout endpoint
+app.post('/logout', (req, res) => {
+  // Remove from activeSessions
+  if (req.session.userId) {
+    activeSessions.delete(req.session.userId);
+  }
+
+  req.session.destroy(err => {
+    if (err) {
+      console.error('Session destruction error:', err);
+      return res.status(500).json({ error: 'Logout failed' });
+    }
+    
+    res.clearCookie('connect.sid', {
+      path: '/',
+      httpOnly: true
+    });
+    
+    res.status(200).json({ message: 'Logged out successfully' });
+  });
+});
+app.post('/login', (req, res) => {
+  const { email, password } = req.body;
+
+  const sql = 'SELECT * FROM users WHERE email = ?';
+  db.query(sql, [email], async (err, results) => {
+    if (err) return res.status(500).json({ error: 'Login failed' });
+    
+    if (results.length === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const user = results[0];
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Set session
+    req.session.userId = user.id;
+    req.session.save();
+
+    // Track active session
+    activeSessions.set(user.id, {
+      id: user.id,
+      fullname: user.fullname,
+      email: user.email,
+      lastActivity: new Date().toISOString(),
+      loginTime: new Date().toISOString()
+    });
+
+    res.json({
+      message: 'Login successful',
+      user: {
+        id: user.id,
+        fullname: user.fullname,
+        email: user.email
+      }
+    });
+  });
+});
 
 // Signup route
 app.post('/signup', async (req, res) => {
@@ -82,42 +186,37 @@ app.post('/signup', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+    
 
-// Login route
-app.post('/login', (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required' });
-  }
-
-  const sql = 'SELECT * FROM users WHERE email = ?';
-  db.query(sql, [email], (err, results) => {
-    if (err) {
-      console.error('Error logging in:', err);
-      return res.status(500).json({ error: 'Login failed' });
-    }
-
-    if (results.length === 0) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    const user = results[0];
-    const isPasswordValid = bcrypt.compareSync(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    // Return user details on successful login
-    res.status(200).json({
-      message: 'Login successful',
-      user: {
-        fullname: user.fullname,
-        email: user.email,
-      },
-    });
-  });
+// Add active users endpoint
+app.get('/api/active-users', (req, res) => {
+  const activeUsers = Array.from(activeSessions.values()).map(user => ({
+    ...user,
+    status: isUserActive(user.lastActivity) ? 'active' : 'inactive'
+  }));
+  
+  res.json(activeUsers);
 });
 
+// Helper function to determine active status
+function isUserActive(lastActivity) {
+  const FIFTEEN_MINUTES = 15 * 60 * 1000; // 15 minute threshold
+  return Date.now() - new Date(lastActivity).getTime() < FIFTEEN_MINUTES;
+}
+
+// Middleware to update last activity
+app.use((req, res, next) => {
+  if (req.user) {
+    const userData = activeSessions.get(req.user.id);
+    if (userData) {
+      activeSessions.set(req.user.id, {
+        ...userData,
+        lastActivity: new Date().toISOString()
+      });
+    }
+  }
+  next();
+});
 // File upload route
 app.post('/uploads', upload.single('file'), (req, res) => {
   if (req.file) {
@@ -130,22 +229,83 @@ app.post('/uploads', upload.single('file'), (req, res) => {
   }
 });
 
+app.get('/users', (req, res) => {
+  const sql = 'SELECT id, fullname, email FROM users'; // Don't select password!
+  
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('Error fetching users:', err.message); // Log the error message for clarity
+      return res.status(500).json({ error: 'Failed to retrieve users' });
+    }
+
+    // Log the results for debugging
+    console.log('Fetched users:', results);
+
+    // Add default access level
+    const usersWithAccess = results.map(user => ({
+      ...user,
+      access: 'user' // Default all to 'user' or implement real roles
+    }));
+
+    res.status(200).json(usersWithAccess);
+  });
+});
+// Add this with your other routes
+app.get('/users/count', (req, res) => {
+  const sql = 'SELECT COUNT(*) AS count FROM users';
+  
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ 
+        error: 'Failed to get user count',
+        details: err.message 
+      });
+    }
+
+    // Return the count as a number
+    res.json({
+      count: results[0]?.count || 0
+    });
+  });
+});
+
 // Home route
 app.get('/', (req, res) => {
   res.send('Welcome to the Knowledge Base of ZAOGA HQ!');
 });
 
-// Get all articles
-app.get('/articles', (req, res) => {
-  const sql = 'SELECT * FROM articles';
+// Add this with your other routes
+app.get('/articles/topic-counts', (req, res) => {
+  const sql = `
+    SELECT 
+      COALESCE(NULLIF(TRIM(topic), ''), 'Uncategorized') AS topic,
+      COUNT(*) AS count
+    FROM zaoga_kb.articles
+    GROUP BY topic
+    ORDER BY count DESC
+    LIMIT 10
+  `;
+
   db.query(sql, (err, results) => {
     if (err) {
-      console.error('Error fetching articles:', err);
-      return res.status(500).json({ error: 'Failed to retrieve articles' });
+      console.error('Database error:', err);
+      return res.status(500).json({ 
+        error: 'Failed to get topic counts',
+        details: err.message 
+      });
     }
-    res.status(200).json(results);
+
+    // Format the results
+    const formattedResults = results.map(item => ({
+      topic: item.topic || 'Uncategorized',
+      count: Number(item.count) || 0
+    }));
+
+    res.json(formattedResults);
   });
 });
+
 
 // Add a new article with FAQs
 app.post('/articles', upload.single('file'), (req, res) => {
@@ -275,42 +435,59 @@ app.post('/search', (req, res) => {
   });
 });
 
-// Get user details
-app.get('/user', (req, res) => {
-  const { email } = req.query;
-  if (!email) {
-    return res.status(400).json({ error: 'Email is required' });
-  }
-
-  const sql = 'SELECT fullname, email FROM users WHERE email = ?';
-  db.query(sql, [email], (err, results) => {
-    if (err) {
-      console.error('Error fetching user details:', err);
-      return res.status(500).json({ error: 'Failed to fetch user details' });
-    }
-
-    if (results.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    res.status(200).json(results[0]);
-  });
-});
-// Get article counts by topic
-app.get('/articles', (req, res) => {
+// Add this endpoint to your existing backend (server.js/app.js)
+app.get('/articles/topics-per-day', (req, res) => {
+  // SQL query to count topics by day
   const sql = `
-SELECT topic  , COUNT(*) AS count FROM zaoga_kb.articles
-GROUP BY topic;
+    SELECT 
+      DATE(created_at) AS date,
+      COUNT(*) AS topic_count
+    FROM zaoga_kb.articles
+    WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+    GROUP BY DATE(created_at)
+    ORDER BY date ASC
   `;
+
   db.query(sql, (err, results) => {
     if (err) {
-      console.error('Error fetching articles:', err.stack);
-      res.status(500).send('Server error');
-      return;
+      console.error('Database error:', err);
+      return res.status(500).json({ 
+        error: 'Failed to get topics per day',
+        details: err.message 
+      });
     }
-    res.json(results);
+
+    // Format dates and ensure consistent data points for all days
+    const formattedResults = fillMissingDates(results);
+    
+    res.json(formattedResults);
   });
 });
+
+// Helper function to ensure all dates are represented
+function fillMissingDates(data) {
+  const results = [];
+  const today = new Date();
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(today.getDate() - 30);
+
+  // Create a map of existing data points
+  const dataMap = {};
+  data.forEach(item => {
+    dataMap[item.date.toISOString().split('T')[0]] = item.topic_count;
+  });
+
+  // Fill in missing dates with 0 counts
+  for (let d = new Date(thirtyDaysAgo); d <= today; d.setDate(d.getDate() + 1)) {
+    const dateStr = d.toISOString().split('T')[0];
+    results.push({
+      date: dateStr,
+      topic_count: dataMap[dateStr] || 0
+    });
+  }
+
+  return results;
+}
 
 // Start the server
 app.listen(port, () => {

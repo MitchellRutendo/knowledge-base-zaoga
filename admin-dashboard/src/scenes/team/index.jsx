@@ -1,34 +1,49 @@
 import { Box, Typography, useTheme } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import { tokens } from "../../theme";
-import { mockDataTeam } from "../../data/mockData";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import LockOpenOutlinedIcon from "@mui/icons-material/LockOpenOutlined";
 import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
 import Header from "../../components/Header";
+import { useEffect, useState } from "react";
+import CircularProgress from "@mui/material/CircularProgress";
 
 const Team = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch("http://localhost:8081/users");
+        
+        if (!response.ok) {
+          throw new Error(`Failed to load users (${response.status})`);
+        }
+        
+        const data = await response.json();
+        setUsers(data);
+      } catch (err) {
+        console.error("Error fetching users:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
   const columns = [
-    { field: "id", headerName: "ID" },
+    { field: "id", headerName: "ID", width: 70 },
     {
-      field: "name",
-      headerName: "Name",
+      field: "fullname",
+      headerName: "Full Name",
       flex: 1,
       cellClassName: "name-column--cell",
-    },
-    {
-      field: "age",
-      headerName: "Age",
-      type: "number",
-      headerAlign: "left",
-      align: "left",
-    },
-    {
-      field: "phone",
-      headerName: "Phone Number",
-      flex: 1,
     },
     {
       field: "email",
@@ -36,10 +51,18 @@ const Team = () => {
       flex: 1,
     },
     {
-      field: "accessLevel",
+      field: "createdAt",
+      headerName: "Member Since",
+      flex: 1,
+      valueFormatter: (params) => {
+        return new Date(params.value).toLocaleDateString();
+      }
+    },
+    {
+      field: "access",
       headerName: "Access Level",
       flex: 1,
-      renderCell: ({ row: { access } }) => {
+      renderCell: ({ row }) => {
         return (
           <Box
             width="60%"
@@ -48,25 +71,45 @@ const Team = () => {
             display="flex"
             justifyContent="center"
             backgroundColor={
-              access === "admin"
+              row.access === "admin"
                 ? colors.greenAccent[600]
-                : access === "manager"
-                ? colors.greenAccent[700]
                 : colors.greenAccent[700]
             }
             borderRadius="4px"
           >
-            {access === "admin" && <AdminPanelSettingsOutlinedIcon />}
-            {access === "manager" && <SecurityOutlinedIcon />}
-            {access === "user" && <LockOpenOutlinedIcon />}
+            {row.access === "admin" && <AdminPanelSettingsOutlinedIcon />}
+            {row.access === "user" && <LockOpenOutlinedIcon />}
             <Typography color={colors.grey[100]} sx={{ ml: "5px" }}>
-              {access}
+              {row.access}
             </Typography>
           </Box>
         );
       },
     },
   ];
+
+  // Loading and error states remain the same...
+  if (loading) {
+    return (
+      <Box m="20px">
+        <Header title="TEAM" subtitle="Loading team members..." />
+        <Box display="flex" justifyContent="center" p={4}>
+          <CircularProgress />
+        </Box>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box m="20px">
+        <Header title="TEAM" subtitle="Error loading team" />
+        <Typography color="error" p={4}>
+          {error}
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box m="20px">
@@ -95,12 +138,16 @@ const Team = () => {
             borderTop: "none",
             backgroundColor: colors.blueAccent[700],
           },
-          "& .MuiCheckbox-root": {
-            color: `${colors.greenAccent[200]} !important`,
-          },
         }}
       >
-        <DataGrid checkboxSelection rows={mockDataTeam} columns={columns} />
+        <DataGrid 
+          rows={users} 
+          columns={columns} 
+          pageSize={10}
+          rowsPerPageOptions={[10]}
+          checkboxSelection
+          disableSelectionOnClick
+        />
       </Box>
     </Box>
   );

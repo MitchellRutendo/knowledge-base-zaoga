@@ -11,12 +11,13 @@ import SearchIcon from "@mui/icons-material/Search";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-
 const Topbar = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
   const colorMode = useContext(ColorModeContext);
- 
+
+  // Example notification count - replace with your actual data
+  const notificationCount = 4; // This should come from your state/context/API
 
   return (
     <Box display="flex" justifyContent="space-between" p={2}>
@@ -41,12 +42,18 @@ const Topbar = () => {
             <LightModeOutlinedIcon />
           )}
         </IconButton>
-        {/* Notification Icon with Badge */}
+        
+        {/* Notification Icon with Badge - Fixed */}
         <IconButton>
-          <Badge badgeContent  color="error">
+          <Badge 
+            badgeContent={notificationCount} 
+            color="error"
+            max={99} // Optional: sets maximum number to display before showing 99+
+          >
             <NotificationsOutlinedIcon />
           </Badge>
         </IconButton>
+        
         <IconButton>
           <SettingsOutlinedIcon />
         </IconButton>
